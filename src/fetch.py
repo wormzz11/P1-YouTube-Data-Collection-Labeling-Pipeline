@@ -29,5 +29,4 @@ def title_fetcher(query, quantity):
     
 
 
-title_fetcher("Dogs",  5)
 
