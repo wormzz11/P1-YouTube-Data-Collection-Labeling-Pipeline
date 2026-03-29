@@ -19,14 +19,16 @@ def title_fetcher(query, quantity):
         maxResults=quantity,
         q=query,
         relevanceLanguage = "en",
-        fields ="items(id(videoId),snippet(title))",
+        fields ="items(id(videoId),snippet(title, thumbnails))",
         type = "video"
     )
     response = request.execute()
     print("Succesfuly fetched data from {} videos".format(quantity))
-    return response
+
     
     
+
+
 
 
 
