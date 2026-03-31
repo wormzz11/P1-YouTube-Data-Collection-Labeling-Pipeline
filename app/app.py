@@ -1,38 +1,10 @@
 import  streamlit as st
-import sqlite3
-from src.database import insert_evaluation
-
-con = sqlite3.connect("data/database.db")
-cur = con.cursor()
-
-cur.execute("""SELECT id, videoId, title, thumbnail 
-FROM yt_rel
-WHERE relevant IS NULL
-ORDER BY id
-LIMIT 1
-""")
-video = cur.fetchone()
+from src.database import insert_evaluation, quick_inspection, load_next_video
 
 
-st.image(video[3], video[2])
-id =  video[1]
-
-
-if st.button("doge"):
-    evaluation = (id, 1)
-    insert_evaluation(evaluation)
-
-  
-
-if st.button("cate"):
-    evaluation = (id, 0)
-    insert_evaluation(evaluation)
-
-
-
-
-
-
+def main():
+    st.title(":green[Evaluate the video]", text_alignment="center", width="stretch" )
+    
 
 
 
