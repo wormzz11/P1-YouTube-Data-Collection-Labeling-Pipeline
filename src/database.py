@@ -30,15 +30,14 @@ def insert_videos(videos):
    
 
 
-def insert_evaluation(evaluated_videos):
+def insert_evaluation(evaluation):
     with sqlite3.connect("data/database.db") as  con:
         cur = con.cursor()
-        for evaluation in evaluated_videos:
-            cur.execute("""
-                        UPDATE yt_rel
-                        set relevant = ?
-                        WHERE videoId = ?
-                        """, (evaluation[1], evaluation[0])) 
+        cur.execute("""
+            UPDATE yt_rel
+            set relevant = ?
+            WHERE videoId = ?
+            """, (evaluation[1], evaluation[0])) 
         
  
     
@@ -46,9 +45,9 @@ def insert_evaluation(evaluated_videos):
 def quick_inspection():
     with sqlite3.connect("data/database.db") as con:
         cur = con.cursor()
-        res = cur.execute("Select * FROM yt_rel")
-        print(res.fetchall())
-        con.close()
+        res = cur.execute("Select COUNT(*) FROM yt_rel WHERE relevant IS NULL ")
+        print(res.fetchone())
+       
 
 def load_next_video():
     with sqlite3.connect("data/database.db") as con:
@@ -58,8 +57,15 @@ def load_next_video():
         cur.execute("""SELECT id, videoId, title, thumbnail 
         FROM yt_rel
         WHERE relevant IS NULL
-        ORDER BY id
+        ORDER BY id ASC
         LIMIT 1
         """)    
         return cur.fetchone()
     
+import sqlite3
+
+def reset_database():
+    with sqlite3.connect("data/database.db") as con:
+        cur = con.cursor()
+        cur.execute("UPDATE yt_rel SET relevant = NULL")
+        con.commit()

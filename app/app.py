@@ -4,8 +4,39 @@ from src.database import insert_evaluation, quick_inspection, load_next_video
 
 def main():
     st.title(":green[Evaluate the video]", text_alignment="center", width="stretch" )
-    
+ 
 
+    if "video" not in st.session_state:
+        st.session_state.video = load_next_video()
+    video = st.session_state.video
+    if video is None:
+        st.success("No videos left to label")
+        st.stop()
+    st.header(video["title"], divider="green")
+    st.image(video["thumbnail"], width="stretch")
+    videoId = video["videoId"]
+    if st.button("Relevant"):
+        st.write("meow")
+        relevancy = 1
+        evaluation = (videoId, relevancy)
+        st.write(evaluation)
+        insert_evaluation(evaluation)
+        st.session_state.video = load_next_video()
+    if st.button("irrelevant"):
+        st.write("meow")
+        relevancy = 0
+        evaluation = (videoId, relevancy)
+        st.write(evaluation)
+        insert_evaluation(evaluation)
+        st.session_state.video = load_next_video()
+
+    quick_inspection()
+
+
+
+
+if __name__ == "__main__":
+    main()
 
 
 #test = [(1, 'E8HxOFUKbWo', 'DOG FUNNY REACTION PART 3 #dog #funny #trendingshorts #doge',
