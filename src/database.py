@@ -45,8 +45,16 @@ def insert_evaluation(evaluation):
 def quick_inspection():
     with sqlite3.connect("data/database.db") as con:
         cur = con.cursor()
-        res = cur.execute("Select COUNT(*) FROM yt_rel WHERE relevant IS NULL ")
-        print(res.fetchone())
+        cur.execute("""        
+        Select
+            SUM(
+                CASE WHEN RELEVANT IS NOT NULL THEN  1  ELSE 0 END),
+            SUM(
+                CASE WHEN RELEVANT IS NULL THEN 1 ELSE 0 END)        
+        FROM yt_rel      
+        """)
+        result = cur.fetchone()
+        print("Non Nulls:", result[0], "Nulls:", result[1])
        
 
 def load_next_video():
