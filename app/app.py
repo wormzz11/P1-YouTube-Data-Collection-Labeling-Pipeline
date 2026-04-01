@@ -17,6 +17,7 @@ st.set_page_config(page_title="Video Evaluator", page_icon="🎬", layout="cente
 st.markdown(
     """
 <style>
+
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap');
 html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; background-color: #0d0f12; color: #e8e6e1; font-size: 1rem; }
 .stApp { background-color: #0d0f12; } #MainMenu, footer, header { visibility: hidden; }
