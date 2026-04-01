@@ -55,7 +55,6 @@ This project provides a complete pipeline for collecting YouTube video metadata,
    git clone https://github.com/wormzz11/YouTube-Data-Collection-Labeling-System
    cd YouTube-Data-Collection-Labeling-System
    ```
-   
 2. Create and activate a virtual environment:
  ```bash
    python -m venv venv
@@ -66,7 +65,7 @@ This project provides a complete pipeline for collecting YouTube video metadata,
    pip install -e .
   ```
 4. Configure your YouTube API key:
- ```python
+ ```bash
   Create a file `config/settings.py` and add: 
   YOUTUBE_API_KEY = "<your_api_key_here>"
 ```
