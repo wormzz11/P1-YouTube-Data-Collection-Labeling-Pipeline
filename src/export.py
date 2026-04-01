@@ -17,6 +17,7 @@ def export(theme, mode, file_format):
             raise ValueError("Invalid mode")
         
         df = pd.read_sql_query(query , con, params=(theme,))
+        df.drop(columns=["updated_at", "id"], errors="ignore")
 
         if file_format == "csv":
             df.to_csv(f"data/exports/{theme}_{mode}.csv", index=False)
