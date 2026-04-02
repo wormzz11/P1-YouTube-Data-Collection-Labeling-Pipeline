@@ -48,6 +48,12 @@ This project provides a complete pipeline for collecting YouTube video metadata,
 - Thumbnails are stored as URLs, not downloaded
 - The system is optimized for supervised dataset creation, not full‑scale crawling
 
+## Data Flow 
+<div style="display: flex; gap: 20px;">
+ <img width="1000" height="1000" alt="image" src="https://github.com/user-attachments/assets/05f40f8b-a3cf-4f37-b4fb-bca83b73ed66" />
+ <img width="600" height="500" alt="image"  src="https://github.com/user-attachments/assets/78e01425-3b76-47be-b3e6-70d92863d134"/>
+</div>
+
 ## Setup
 
 1. Clone the repository:
