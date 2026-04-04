@@ -2,6 +2,7 @@ import sqlite3
 
 DB_PATH = "data/database.db"
 
+
 def db_creator():
     with sqlite3.connect(DB_PATH) as con:
         cur = con.cursor()
@@ -29,12 +30,8 @@ def db_creator():
         """)
         con.commit()
 
+
 def insert_videos(videos, theme=None):
-    """
-    Insert a list of video dicts into yt_rel.
-    If theme is provided, the inserted rows will have that theme value.
-    Each video dict should contain keys: videoId, title, thumbnail.
-    """
     with sqlite3.connect(DB_PATH) as con:
         cur = con.cursor()
         for video in videos:
@@ -48,26 +45,16 @@ def insert_videos(videos, theme=None):
         con.commit()
 
 
-
 def insert_evaluation(evaluation):
     videoId, relevancy, theme = evaluation
-
     with sqlite3.connect(DB_PATH) as con:
         cur = con.cursor()
-
-        # Get base video info (title, thumbnail)
         cur.execute("""
-            SELECT title, thumbnail
-            FROM yt_rel
-            WHERE videoId = ? AND theme IS NULL
-            LIMIT 1
+            SELECT title, thumbnail FROM yt_rel WHERE videoId = ? AND theme IS NULL LIMIT 1
         """, (videoId,))
         row = cur.fetchone()
-
         title = row[0] if row else None
         thumbnail = row[1] if row else None
-
-        # Insert or update in ONE step
         cur.execute("""
             INSERT INTO yt_rel(videoId, title, thumbnail, relevant, theme)
             VALUES (?, ?, ?, ?, ?)
@@ -76,23 +63,20 @@ def insert_evaluation(evaluation):
                 relevant = excluded.relevant,
                 updated_at = CURRENT_TIMESTAMP
         """, (videoId, title, thumbnail, relevancy, theme))
-
         con.commit()
+
 
 def evaluation_count(theme=None):
     with sqlite3.connect(DB_PATH) as con:
         cur = con.cursor()
         if theme is not None:
             cur.execute("""
-                SELECT
-                    COALESCE(SUM(CASE WHEN relevant IS NOT NULL THEN 1 ELSE 0 END), 0)
-                FROM yt_rel
-                WHERE theme = ?
+                SELECT COALESCE(SUM(CASE WHEN relevant IS NOT NULL THEN 1 ELSE 0 END), 0)
+                FROM yt_rel WHERE theme = ?
             """, (theme,))
             labeled = cur.fetchone()[0]
             cur.execute("""
-                SELECT
-                    COALESCE(COUNT(1), 0)
+                SELECT COALESCE(COUNT(1), 0)
                 FROM yt_rel AS base
                 WHERE base.theme IS NULL
                   AND base.videoId NOT IN (SELECT videoId FROM yt_rel WHERE theme = ?)
@@ -103,41 +87,12 @@ def evaluation_count(theme=None):
                 SELECT
                     COALESCE(SUM(CASE WHEN relevant IS NOT NULL THEN 1 ELSE 0 END), 0),
                     COALESCE(SUM(CASE WHEN relevant IS NULL THEN 1 ELSE 0 END), 0)
-                FROM yt_rel
-                WHERE theme IS NULL
+                FROM yt_rel WHERE theme IS NULL
             """)
             row = cur.fetchone()
             labeled, unlabeled = row[0], row[1]
         return (int(labeled), int(unlabeled))
 
-def load_next_video():
-    with sqlite3.connect(DB_PATH) as con:
-        con.row_factory = sqlite3.Row
-        cur = con.cursor()
-        cur.execute("""
-            SELECT id, videoId, title, thumbnail, relevant, theme
-            FROM yt_rel
-            WHERE relevant IS NULL AND theme IS NULL
-            ORDER BY id ASC
-            LIMIT 1
-        """)
-        return cur.fetchone()
-
-def load_next_video_for_theme(theme):
-    with sqlite3.connect(DB_PATH) as con:
-        con.row_factory = sqlite3.Row
-        cur = con.cursor()
-        cur.execute("""
-            SELECT id, videoId, title, thumbnail, NULL as relevant, NULL as theme
-            FROM yt_rel
-            WHERE theme IS NULL
-              AND videoId NOT IN (
-                SELECT videoId FROM yt_rel WHERE theme = ?
-              )
-            ORDER BY id ASC
-            LIMIT 1
-        """, (theme,))
-        return cur.fetchone()
 
 def load_video_by_id(video_id):
     with sqlite3.connect(DB_PATH) as con:
@@ -145,47 +100,10 @@ def load_video_by_id(video_id):
         cur = con.cursor()
         cur.execute("""
             SELECT id, videoId, title, thumbnail, relevant, theme
-            FROM yt_rel
-            WHERE id = ?
-            LIMIT 1
+            FROM yt_rel WHERE id = ? LIMIT 1
         """, (video_id,))
         return cur.fetchone()
 
-def load_video_by_videoId(video_id):
-    with sqlite3.connect(DB_PATH) as con:
-        con.row_factory = sqlite3.Row
-        cur = con.cursor()
-        cur.execute("""
-            SELECT id, videoId, title, thumbnail, relevant, theme
-            FROM yt_rel
-            WHERE videoId = ? AND theme IS NULL
-            LIMIT 1
-        """, (video_id,))
-        return cur.fetchone()
-
-def load_adjacent_video(current_id, direction="next", theme=None):
-    with sqlite3.connect(DB_PATH) as con:
-        con.row_factory = sqlite3.Row
-        cur = con.cursor()
-        if direction == "next":
-            cur.execute("""
-                SELECT id, videoId, title, thumbnail, NULL as relevant, NULL as theme
-                FROM yt_rel
-                WHERE theme IS NULL
-                  AND id > ?
-                ORDER BY id ASC
-                LIMIT 1
-            """, (current_id,))
-        else:
-            cur.execute("""
-                SELECT id, videoId, title, thumbnail, NULL as relevant, NULL as theme
-                FROM yt_rel
-                WHERE theme IS NULL
-                  AND id < ?
-                ORDER BY id DESC
-                LIMIT 1
-            """, (current_id,))
-        return cur.fetchone()
 
 def load_adjacent_labeled_for_theme(current_id, direction="next", theme=None):
     with sqlite3.connect(DB_PATH) as con:
@@ -194,22 +112,17 @@ def load_adjacent_labeled_for_theme(current_id, direction="next", theme=None):
         if direction == "next":
             cur.execute("""
                 SELECT id, videoId, title, thumbnail, relevant, theme
-                FROM yt_rel
-                WHERE theme = ?
-                  AND id > ?
-                ORDER BY id ASC
-                LIMIT 1
+                FROM yt_rel WHERE theme = ? AND id > ?
+                ORDER BY id ASC LIMIT 1
             """, (theme, current_id))
         else:
             cur.execute("""
                 SELECT id, videoId, title, thumbnail, relevant, theme
-                FROM yt_rel
-                WHERE theme = ?
-                  AND id < ?
-                ORDER BY id DESC
-                LIMIT 1
+                FROM yt_rel WHERE theme = ? AND id < ?
+                ORDER BY id DESC LIMIT 1
             """, (theme, current_id))
         return cur.fetchone()
+
 
 def load_first_labeled_for_theme(theme):
     with sqlite3.connect(DB_PATH) as con:
@@ -217,12 +130,11 @@ def load_first_labeled_for_theme(theme):
         cur = con.cursor()
         cur.execute("""
             SELECT id, videoId, title, thumbnail, relevant, theme
-            FROM yt_rel
-            WHERE theme = ?
-            ORDER BY id ASC
-            LIMIT 1
+            FROM yt_rel WHERE theme = ?
+            ORDER BY id ASC LIMIT 1
         """, (theme,))
         return cur.fetchone()
+
 
 def load_video_theme_status(video_id, theme):
     with sqlite3.connect(DB_PATH) as con:
@@ -232,6 +144,7 @@ def load_video_theme_status(video_id, theme):
             SELECT id, relevant FROM yt_rel WHERE videoId = ? AND theme = ? LIMIT 1
         """, (video_id, theme))
         return cur.fetchone()
+
 
 def reset_database():
     with sqlite3.connect(DB_PATH) as con:

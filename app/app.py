@@ -1,13 +1,12 @@
 import streamlit as st
 import html
+import sqlite3
 from src.database import (
     insert_evaluation,
     evaluation_count,
-    load_next_video_for_theme,
-    load_adjacent_video,
     load_adjacent_labeled_for_theme,
     load_first_labeled_for_theme,
-    load_video_by_videoId,
+    load_video_by_id,
     load_video_theme_status,
     db_creator,
 )
@@ -17,7 +16,6 @@ st.set_page_config(page_title="Video Evaluator", page_icon="🎬", layout="cente
 st.markdown(
     """
 <style>
-
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap');
 html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; background-color: #0d0f12; color: #e8e6e1; font-size: 1rem; }
 .stApp { background-color: #0d0f12; } #MainMenu, footer, header { visibility: hidden; }
@@ -65,19 +63,42 @@ div[data-testid="stHorizontalBlock"]:nth-of-type(2) .stButton > button:hover { b
     unsafe_allow_html=True,
 )
 
+
 def _row_to_dict(row):
     return dict(row) if row is not None else None
 
-def _ensure_base_id(video):
-    if video is None:
-        return None
-    if video.get("theme") is None:
-        return video["id"]
-    base = load_video_by_videoId(video["videoId"])
-    return base["id"] if base else video["id"]
 
-def get_theme():
-    return st.session_state.get("theme", "").strip() or None
+def build_queue(theme):
+    with sqlite3.connect("data/database.db") as con:
+        cur = con.cursor()
+        cur.execute("""
+            SELECT id FROM yt_rel
+            WHERE theme IS NULL
+              AND videoId NOT IN (SELECT videoId FROM yt_rel WHERE theme = ?)
+            ORDER BY RANDOM()
+        """, (theme,))
+        return [row[0] for row in cur.fetchall()]
+
+
+def get_queue(theme):
+    if (
+        "queue" not in st.session_state
+        or st.session_state.get("_queue_theme") != theme
+        or not st.session_state["queue"]
+    ):
+        st.session_state["queue"] = build_queue(theme)
+        st.session_state["queue_index"] = 0
+        st.session_state["_queue_theme"] = theme
+    return st.session_state["queue"]
+
+
+def current_video_from_queue(theme):
+    queue = get_queue(theme)
+    idx = st.session_state.get("queue_index", 0)
+    if not queue or idx >= len(queue):
+        return None
+    return _row_to_dict(load_video_by_id(queue[idx]))
+
 
 def label_badge(relevant):
     if relevant == 1:
@@ -86,21 +107,28 @@ def label_badge(relevant):
         return '<span class="label-badge label-irrelevant">✕ Irrelevant</span>'
     return '<span class="label-badge label-unlabeled">Unlabeled</span>'
 
+
 def main():
     db_creator()
     st.markdown('<div class="eval-header"><span class="eval-brand">🎬 Video Evaluator</span><span class="eval-badge">Pipeline · Labeling Tool</span></div>', unsafe_allow_html=True)
     st.markdown('<div class="theme-label">Current theme</div>', unsafe_allow_html=True)
     theme_input = st.text_input(label="theme", placeholder="e.g. dogs, climate, finance ...", key="theme")
     theme = theme_input.strip() if theme_input else None
+
     prev_theme = st.session_state.get("_prev_theme")
     if prev_theme != theme:
         st.session_state["_prev_theme"] = theme
-        st.session_state["video"] = None
         st.session_state["nav_mode"] = "candidates"
+        if "queue" in st.session_state:
+            del st.session_state["queue"]
+        if "queue_index" in st.session_state:
+            del st.session_state["queue_index"]
+
     if theme:
         st.markdown(f'<div class="theme-active">⬡ &nbsp;Labeling as: <strong>{html.escape(theme)}</strong></div>', unsafe_allow_html=True)
     else:
         st.markdown('<div class="theme-empty">No theme set — evaluations will have no theme attached</div>', unsafe_allow_html=True)
+
     if not theme:
         st.markdown('<div class="video-card" style="opacity:0.85;"><div class="video-card-body"><p class="video-title">Enter a theme to load videos</p><div class="video-meta"><span class="video-id">ID: —</span><span class="label-badge label-unlabeled">No theme</span></div></div></div>', unsafe_allow_html=True)
         col1, col2 = st.columns(2)
@@ -115,33 +143,33 @@ def main():
             st.button("Next →", key="next", disabled=True)
         st.info("Please enter a theme (for example: dogs, climate, finance) to begin labeling.")
         st.stop()
+
     if "nav_mode" not in st.session_state:
         st.session_state["nav_mode"] = "candidates"
     nav_mode = st.radio("Navigation mode", ("candidates", "labeled"), index=0, horizontal=True, key="nav_mode_radio")
     st.session_state["nav_mode"] = nav_mode
+
     labeled, unlabeled = evaluation_count(theme)
     total = labeled + unlabeled
-    if total == 0 and nav_mode == "candidates":
-        st.markdown('<div class="done-state"><div class="done-icon">✅</div><div class="done-title">All done!</div><div class="done-sub">Every video has been evaluated for this theme.</div></div>', unsafe_allow_html=True)
     pct = int((labeled / total) * 100) if total > 0 else 0
     st.markdown(f'<div class="progress-wrap"><div class="progress-meta"><span class="progress-label">Evaluation progress</span><span class="progress-count">{labeled} / {total} · {pct}%</span></div><div class="progress-bar-bg"><div class="progress-bar-fill" style="width:{pct}%"></div></div></div>', unsafe_allow_html=True)
-    if "video" not in st.session_state or st.session_state["video"] is None:
-        if nav_mode == "candidates":
-            row = load_next_video_for_theme(theme)
-            st.session_state["video"] = _row_to_dict(row)
-        else:
-            row = load_first_labeled_for_theme(theme)
-            st.session_state["video"] = _row_to_dict(row)
-    video = st.session_state["video"]
+
+    if nav_mode == "candidates":
+        video = current_video_from_queue(theme)
+    else:
+        video = _row_to_dict(load_first_labeled_for_theme(theme))
+
     if video is None:
         st.markdown('<div class="done-state"><div class="done-icon">✅</div><div class="done-title">No videos to show</div><div class="done-sub">Try switching navigation mode or seeding base videos.</div></div>', unsafe_allow_html=True)
         st.stop()
+
     row = load_video_theme_status(video["videoId"], theme)
     theme_status = row["relevant"] if row else None
     safe_title = html.escape(video.get("title", "") or "")
     safe_video_id = html.escape(video.get("videoId", "") or "")
     safe_thumbnail = html.escape(video.get("thumbnail", "") or "")
     safe_theme = html.escape(theme)
+
     if theme_status is None:
         label_word = "Unlabeled"
     elif theme_status == 1:
@@ -149,56 +177,54 @@ def main():
     else:
         label_word = "Irrelevant"
     theme_eval_note = f'<span class="theme-eval-badge">Already labeled \"{label_word}\" for {safe_theme}</span>'
-    badge_html = ""
-    st.markdown(f'<div class="video-card"><img src=\"{safe_thumbnail}\" alt=\"thumbnail\" /><div class=\"video-card-body\"><p class=\"video-title\">{safe_title}</p><div class=\"video-meta\"><span class=\"video-id\">ID: {safe_video_id}</span>{badge_html}<span class=\"theme-badge\">⬡ {safe_theme}</span>{theme_eval_note}</div></div></div>', unsafe_allow_html=True)
+
+    st.markdown(f'<div class="video-card"><img src=\"{safe_thumbnail}\" alt=\"thumbnail\" /><div class=\"video-card-body\"><p class=\"video-title\">{safe_title}</p><div class=\"video-meta\"><span class=\"video-id\">ID: {safe_video_id}</span><span class=\"theme-badge\">⬡ {safe_theme}</span>{theme_eval_note}</div></div></div>', unsafe_allow_html=True)
+
     col1, col2 = st.columns(2)
     with col1:
         if st.button("✓  Relevant", key="relevant"):
             insert_evaluation((video["videoId"], 1, theme))
             if nav_mode == "candidates":
-                row = load_next_video_for_theme(theme)
-            else:
-                row = load_first_labeled_for_theme(theme)
-            st.session_state["video"] = _row_to_dict(row)
+                st.session_state["queue_index"] = st.session_state.get("queue_index", 0) + 1
             st.rerun()
     with col2:
         if st.button("✕  Irrelevant", key="irrelevant"):
             insert_evaluation((video["videoId"], 0, theme))
             if nav_mode == "candidates":
-                row = load_next_video_for_theme(theme)
-            else:
-                row = load_first_labeled_for_theme(theme)
-            st.session_state["video"] = _row_to_dict(row)
+                st.session_state["queue_index"] = st.session_state.get("queue_index", 0) + 1
             st.rerun()
+
     col3, col4 = st.columns(2)
     with col3:
         if st.button("← Previous", key="prev"):
             if nav_mode == "candidates":
-                base_id = _ensure_base_id(video)
-                row = load_adjacent_video(base_id, direction="prev", theme=theme)
+                idx = st.session_state.get("queue_index", 0)
+                if idx > 0:
+                    st.session_state["queue_index"] = idx - 1
             else:
                 cur_theme_row = load_video_theme_status(video["videoId"], theme)
                 cur_id = cur_theme_row["id"] if cur_theme_row and "id" in cur_theme_row.keys() else None
                 if cur_id:
-                    row = load_adjacent_labeled_for_theme(cur_id, direction="prev", theme=theme)
-                else:
-                    row = None
-            st.session_state["video"] = _row_to_dict(row)
+                    prev_row = load_adjacent_labeled_for_theme(cur_id, direction="prev", theme=theme)
+                    if prev_row:
+                        st.session_state["labeled_video"] = _row_to_dict(prev_row)
             st.rerun()
     with col4:
         if st.button("Next →", key="next"):
             if nav_mode == "candidates":
-                base_id = _ensure_base_id(video)
-                row = load_adjacent_video(base_id, direction="next", theme=theme)
+                queue = get_queue(theme)
+                idx = st.session_state.get("queue_index", 0)
+                if idx < len(queue) - 1:
+                    st.session_state["queue_index"] = idx + 1
             else:
                 cur_theme_row = load_video_theme_status(video["videoId"], theme)
                 cur_id = cur_theme_row["id"] if cur_theme_row and "id" in cur_theme_row.keys() else None
                 if cur_id:
-                    row = load_adjacent_labeled_for_theme(cur_id, direction="next", theme=theme)
-                else:
-                    row = None
-            st.session_state["video"] = _row_to_dict(row)
+                    next_row = load_adjacent_labeled_for_theme(cur_id, direction="next", theme=theme)
+                    if next_row:
+                        st.session_state["labeled_video"] = _row_to_dict(next_row)
             st.rerun()
+
 
 if __name__ == "__main__":
     main()
