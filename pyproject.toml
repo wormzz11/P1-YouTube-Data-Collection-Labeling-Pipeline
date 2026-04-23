@@ -7,7 +7,7 @@ requires-python = ">=3.10"
 dependencies = [
     "requests",
     "streamlit",
-    "google-api-python-client"
+    "google-api-python-client",
     "pandas",
     "openpyxl"
 ]
