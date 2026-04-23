@@ -74,7 +74,7 @@ This project provides a complete pipeline for collecting YouTube video metadata,
   ```
 4. Configure your YouTube API key:
  ```bash
-  Create a file `config/settings.py` and add: 
+  Create a file `.env` and add: 
   YOUTUBE_API_KEY = "<your_api_key_here>"
 ```
 5. Run the application:
